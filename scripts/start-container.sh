@@ -8,6 +8,7 @@ usage()
 	echo "Optional arguments:"
 	echo "  -h, --help     Give this help list"
 	echo "      --image    Select the image name of the container"
+	echo "      --rebuild-image  Rebuild the default local image before starting"
 	echo "  -v, --volume   Bind mount a volume into the container"
 	echo "      --name     Assign a name to the container"
 	echo "  -d, --detach   Run container in background and print container ID"
@@ -15,7 +16,11 @@ usage()
 	exit 1
 }
 
-image_name=kds285/minizero:latest
+script_dir=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+repo_root=$(cd "${script_dir}/.." && pwd)
+default_image_name=minizero:local
+image_name=${default_image_name}
+rebuild_image=false
 container_tool=$(basename $(which podman || which docker) 2>/dev/null)
 if [[ ! $container_tool ]]; then
 	echo "Neither podman nor docker is installed." >&2
@@ -29,6 +34,8 @@ while :; do
 		-h|--help) shift; usage
 		;;
 		--image) shift; image_name=${1}
+		;;
+		--rebuild-image) rebuild_image=true
 		;;
 		-v|--volume) shift; container_volume="${container_volume} -v ${1}"
 		;;
@@ -45,6 +52,11 @@ while :; do
 	esac
 	shift
 done
+
+if [[ ${image_name} == ${default_image_name} ]] && { [[ ${rebuild_image} == true ]] || ! ${container_tool} image inspect "${image_name}" >/dev/null 2>&1; }; then
+	echo "Building local image ${image_name} from ${repo_root}/docker/Dockerfile ..."
+	${container_tool} build -t "${image_name}" -f "${repo_root}/docker/Dockerfile" "${repo_root}/docker"
+fi
 
 # check GPU environment
 if ! command -v nvidia-smi &> /dev/null; then
@@ -73,8 +85,11 @@ fi
 container_arguments=$(echo ${container_arguments} | xargs)
 
 if [ ${container_tool} = "podman" ]; then
-	echo "$container_tool run ${container_arguments} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name}"
-	$container_tool run ${container_arguments} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name}
+	runtime_check_cmd='if [ -x /workspace/scripts/check-gpu-runtime.sh ]; then /workspace/scripts/check-gpu-runtime.sh || true; fi'
+	git_safe_cmd="${runtime_check_cmd} && git config --global --add safe.directory /workspace && exec bash"
+	container_arguments="${container_arguments} -e container=${container_tool}"
+	echo "$container_tool run ${container_arguments} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name} bash -c \"${git_safe_cmd}\""
+	$container_tool run ${container_arguments} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name} bash -c "${git_safe_cmd}"
 elif [ ${container_tool} = "docker" ]; then
 	# manually mount GPU devices into Docker to resolve 'Failed to Initialize NVML: Unknown Error'
 	device_args="--gpus all"
@@ -84,7 +99,8 @@ elif [ ${container_tool} = "docker" ]; then
 		fi
 	done
 	# add Git safe directory
-	git_safe_cmd='git config --global --add safe.directory /workspace && exec bash'
+	runtime_check_cmd='if [ -x /workspace/scripts/check-gpu-runtime.sh ]; then /workspace/scripts/check-gpu-runtime.sh || true; fi'
+	git_safe_cmd="${runtime_check_cmd} && git config --global --add safe.directory /workspace && exec bash"
 	# add argument
 	container_arguments="${container_arguments} -e container=${container_tool}"
 	echo "$container_tool run ${container_arguments} ${device_args} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name} bash -c \"${git_safe_cmd}\""

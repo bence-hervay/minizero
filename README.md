@@ -115,7 +115,10 @@ Results on Atari games:
 ### Prerequisites
 
 MiniZero requires a Linux platform with at least one NVIDIA GPU to operate.
-To facilitate the use of MiniZero, a [container image](https://hub.docker.com/r/kds285/minizero) is pre-built to include all required packages. 
+To facilitate the use of MiniZero, the repository ships a `Dockerfile` and `scripts/start-container.sh` will build a local runtime image on first use by default.
+You may still pass `--image` to `scripts/start-container.sh` to use a custom image instead.
+For convenience, the previously published pre-built image [`kds285/minizero`](https://hub.docker.com/r/kds285/minizero) is still available as a legacy option, e.g. `scripts/start-container.sh --image kds285/minizero:latest`.
+Because that image was last pushed several years ago, it may not support newer GPUs or CUDA stacks; the local image path above is the recommended default.
 Thus, a container tool such as `docker` or `podman` is also required.  
 If you cannot use Docker (e.g., on HEC or HPC clusters), you can read the `Dockerfile` to manually reproduce the environment.
 
@@ -165,7 +168,7 @@ git clone git@github.com:rlglab/minizero.git
 cd minizero # enter the cloned repository
 ```
 
-Then, start the runtime environment using the container. 
+Then, start the runtime environment using the container. The first run may spend a while building the local image.
 
 ```bash
 scripts/start-container.sh # must have either podman or docker installed

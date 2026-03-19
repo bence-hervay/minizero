@@ -2,6 +2,7 @@
 
 env_cmakelists="$(dirname $(readlink -f "$0"))/../minizero/environment/CMakeLists.txt"
 support_games=($(awk '/target_include_directories/,/\)/' ${env_cmakelists} | sed 's|/|\n|g' | grep -v -E 'target|environment|PUBLIC|CMAKE_CURRENT_SOURCE_DIR|base|stochastic|)'))
+runtime_check_script="$(dirname $(readlink -f "$0"))/../scripts/check-gpu-runtime.sh"
 
 usage() {
     case "$1" in
@@ -281,6 +282,13 @@ fi
 trap 'exit 127' INT TERM
 trap 'code=$?; cleanup >/dev/null; exit $code' EXIT
 trap - SIGUSR1
+
+log INFO "Checking the CUDA runtime compatibility ..."
+$launch "${runtime_check_script}"
+if (( $? )); then
+    log ERR "GPU runtime compatibility check failed"
+    exit 1
+fi
 
 log INFO "Building the executable for $game ..."
 $launch scripts/build.sh $game | colorize OUT_BUILD >&2

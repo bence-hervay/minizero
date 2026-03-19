@@ -1,7 +1,9 @@
 # This docker file is to build a zero training environment
-FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTORCH_VERSION=2.4.1
+ARG PYTORCH_CUDA=cu124
 
 ENV TZ=Asia/Taipei
 
@@ -36,17 +38,17 @@ RUN rm /etc/apt/sources.list.d/cuda.list || true && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # install pytorch & libtorch
-RUN python3 -m pip install torch==1.13.0+cu116 --extra-index-url https://download.pytorch.org/whl/cu116 && \
-    wget -qO- https://download.pytorch.org/libtorch/cu116/libtorch-cxx11-abi-shared-with-deps-1.13.0%2Bcu116.zip | bsdtar -xvf- -C /usr/local && \
-    rm /usr/local/libtorch/lib/libcudnn.so.8
+RUN python3 -m pip install torch==${PYTORCH_VERSION} --index-url https://download.pytorch.org/whl/${PYTORCH_CUDA} && \
+    wget -qO- https://download.pytorch.org/libtorch/${PYTORCH_CUDA}/libtorch-cxx11-abi-shared-with-deps-${PYTORCH_VERSION}%2B${PYTORCH_CUDA}.zip | bsdtar -xvf- -C /usr/local && \
+    find /usr/local/libtorch/lib -maxdepth 1 -name 'libcudnn*.so*' -delete
 ENV CMAKE_PREFIX_PATH=/usr/local/libtorch/share/cmake/Torch
 
 # install gym/atari & Arcade Learning Environment (ALE v0.8.0)
 # You can download Atari game ROMs from the following link: https://www.atarimania.com/rom_collection_archive_atari_2600_roms.html
-COPY atari57/ /opt/atari57
 RUN python3 -m pip install gym[atari] && \
     python3 -m pip cache purge && \
-    ale-import-roms /opt/atari57 && \
+    mkdir -p /opt/atari57 && \
+    if [ -n "$(ls -A /opt/atari57 2>/dev/null)" ]; then ale-import-roms /opt/atari57; else echo "Skipping Atari ROM import; add ROMs to /opt/atari57 later if needed."; fi && \
     cd /opt/ && \
     git clone https://github.com/mgbellemare/Arcade-Learning-Environment.git && \
     cd Arcade-Learning-Environment && \

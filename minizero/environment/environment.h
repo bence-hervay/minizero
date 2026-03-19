@@ -174,7 +174,15 @@ inline void setUpEnv()
 #elif TICTACTOE
     config::env_board_size = 3;
 #elif HEXTICTACTOE
-    config::env_board_size = 7;
+    config::env_board_size = 11;
+    config::actor_num_simulation = 200;
+    config::actor_select_action_softmax_temperature_decay = true;
+    config::zero_end_iteration = 200;
+    config::nn_num_blocks = 4;
+    config::nn_num_hidden_channels = 128;
+    config::nn_num_value_hidden_channels = 128;
+    config::zero_num_games_per_iteration = 2000;
+    config::actor_use_random_rotation_features = false;
 #elif PUZZLE2048
     config::env_board_size = 4;
     config::learner_n_step_return = 10;

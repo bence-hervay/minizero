@@ -102,11 +102,18 @@ typedef minizero::env::surakarta::SurakartaEnvLoader EnvironmentLoader;
 typedef minizero::env::tetrisblockpuzzle::TetrisBlockPuzzleAction Action;
 typedef minizero::env::tetrisblockpuzzle::TetrisBlockPuzzleEnv Environment;
 typedef minizero::env::tetrisblockpuzzle::TetrisBlockPuzzleEnvLoader EnvironmentLoader;
-#else
+#elif TICTACTOE
 #include "tictactoe.h"
 typedef minizero::env::tictactoe::TicTacToeAction Action;
 typedef minizero::env::tictactoe::TicTacToeEnv Environment;
 typedef minizero::env::tictactoe::TicTacToeEnvLoader EnvironmentLoader;
+#elif HEXTICTACTOE
+#include "hextictactoe.h"
+typedef minizero::env::hextictactoe::HexTicTacToeAction Action;
+typedef minizero::env::hextictactoe::HexTicTacToeEnv Environment;
+typedef minizero::env::hextictactoe::HexTicTacToeEnvLoader EnvironmentLoader;
+#else
+#error "No game selected. Set GAME_TYPE to a supported environment."
 #endif
 
 namespace minizero::env {
@@ -166,6 +173,8 @@ inline void setUpEnv()
     config::env_board_size = 9;
 #elif TICTACTOE
     config::env_board_size = 3;
+#elif HEXTICTACTOE
+    config::env_board_size = 7;
 #elif PUZZLE2048
     config::env_board_size = 4;
     config::learner_n_step_return = 10;
@@ -180,6 +189,8 @@ inline void setUpEnv()
     config::env_board_size = 8;
     config::learner_n_step_return = 10;
     config::zero_actor_intermediate_sequence_length = 200;
+#else
+#error "No game selected. Set GAME_TYPE to a supported environment."
 #endif
 }
 

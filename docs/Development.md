@@ -13,7 +13,7 @@ However, to build program on demand, use `scripts/build.sh` as follows.
 scripts/build.sh [GAME_TYPE] [BUILD_TYPE]
 # E.g., scripts/build.sh tictactoe release
 ```
-* `GAME_TYPE`:  the target game, e.g., `atari`,`go`,`gomoku`,`othello`,`tictactoe`.
+* `GAME_TYPE`:  the target game, e.g., `atari`,`go`,`gomoku`,`othello`,`tictactoe`,`hextictactoe`.
     * Running different games requires different builds with corresponding `GAME_TYPE`.
     * For the full list of supported games, run `scripts/build.sh -h`
     * If `GAME_TYPE` is not specified, the script will rebuild all existing builds.

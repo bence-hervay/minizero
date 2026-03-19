@@ -45,6 +45,7 @@ It supports a variety of game environments:
 * Othello
 * Hex
 * TicTacToe
+* HexTicTacToe
 * Atari (57 games)
 
 We are planning to add new algorithms, features, and more games in the future.

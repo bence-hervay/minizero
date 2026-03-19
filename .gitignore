@@ -1,11 +1,13 @@
 # execute and library file
 build/
+.venv/
 __pycache__
 
 # configuration file
 *.cfg
 
 # training folder
+runs/
 *_az_*/
 *_gaz_*/
 *_mz_*/
@@ -14,5 +16,3 @@ __pycache__
 # others
 .vscode
 .container_root
-
-.venv/

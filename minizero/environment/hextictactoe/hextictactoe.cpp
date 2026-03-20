@@ -9,6 +9,79 @@ namespace minizero::env::hextictactoe {
 
 using namespace minizero::utils;
 
+namespace {
+
+constexpr int kHexTicTacToeRotationSymmetryCount = 6;
+constexpr int kHexTicTacToeSymmetryCount = 12;
+constexpr int kHexTicTacToeReflectionOffset = 6;
+constexpr int kHexTicTacToeInverseSymmetry[kHexTicTacToeSymmetryCount] = {
+    0, 5, 4, 3, 2, 1,
+    6, 7, 8, 9, 10, 11};
+const std::string kHexTicTacToeSymmetryStrings[kHexTicTacToeSymmetryCount] = {
+    "Hex_Rotation_0_Degree",
+    "Hex_Rotation_60_Degree",
+    "Hex_Rotation_120_Degree",
+    "Hex_Rotation_180_Degree",
+    "Hex_Rotation_240_Degree",
+    "Hex_Rotation_300_Degree",
+    "Hex_Reflection_0_Degree",
+    "Hex_Reflection_60_Degree",
+    "Hex_Reflection_120_Degree",
+    "Hex_Reflection_180_Degree",
+    "Hex_Reflection_240_Degree",
+    "Hex_Reflection_300_Degree"};
+
+HexTicTacToeCoord getCenterCoord(int board_size)
+{
+    return {board_size / 2, board_size / 2};
+}
+
+int wrapHexCoordinate(int value, int board_size)
+{
+    return (value % board_size + board_size) % board_size;
+}
+
+HexTicTacToeCoord wrapHexCoord(const HexTicTacToeCoord& coord, int board_size)
+{
+    return {wrapHexCoordinate(coord.x, board_size), wrapHexCoordinate(coord.y, board_size)};
+}
+
+HexTicTacToeCoord rotateRelativeCoord(const HexTicTacToeCoord& coord, int rotation_id)
+{
+    assert(rotation_id >= 0 && rotation_id < kHexTicTacToeRotationSymmetryCount);
+    switch (rotation_id) {
+        case 0: return coord;
+        case 1: return {-coord.y, coord.x + coord.y};
+        case 2: return {-coord.x - coord.y, coord.x};
+        case 3: return {-coord.x, -coord.y};
+        case 4: return {coord.y, -coord.x - coord.y};
+        case 5: return {coord.x + coord.y, -coord.x};
+        default: assert(false); return coord;
+    }
+}
+
+HexTicTacToeCoord reflectRelativeCoord(const HexTicTacToeCoord& coord)
+{
+    return {coord.y, coord.x};
+}
+
+HexTicTacToeCoord transformRelativeCoord(const HexTicTacToeCoord& coord, int symmetry_id)
+{
+    assert(symmetry_id >= 0 && symmetry_id < kHexTicTacToeSymmetryCount);
+    HexTicTacToeCoord transformed = rotateRelativeCoord(coord, symmetry_id % kHexTicTacToeRotationSymmetryCount);
+    if (symmetry_id >= kHexTicTacToeReflectionOffset) { transformed = reflectRelativeCoord(transformed); }
+    return transformed;
+}
+
+HexTicTacToeCoord transformHexCoord(const HexTicTacToeCoord& coord, int symmetry_id, int board_size)
+{
+    const HexTicTacToeCoord center = getCenterCoord(board_size);
+    const HexTicTacToeCoord relative = coord - center;
+    return wrapHexCoord(center + transformRelativeCoord(relative, symmetry_id), board_size);
+}
+
+} // namespace
+
 void HexTicTacToeEnv::reset()
 {
     winner_ = Player::kPlayerNone;
@@ -99,6 +172,76 @@ std::vector<float> HexTicTacToeEnv::getFeatures(utils::Rotation rotation /*= uti
     return features;
 }
 
+int HexTicTacToeEnv::getNumSymmetries() const
+{
+    return kHexTicTacToeSymmetryCount;
+}
+
+utils::Symmetry HexTicTacToeEnv::getIdentitySymmetry() const
+{
+    return utils::Symmetry(0);
+}
+
+utils::Symmetry HexTicTacToeEnv::getSymmetry(int symmetry_id) const
+{
+    assert(symmetry_id >= 0 && symmetry_id < getNumSymmetries());
+    return utils::Symmetry(symmetry_id);
+}
+
+utils::Symmetry HexTicTacToeEnv::getInverseSymmetry(utils::Symmetry symmetry) const
+{
+    assert(symmetry.getID() >= 0 && symmetry.getID() < getNumSymmetries());
+    return utils::Symmetry(kHexTicTacToeInverseSymmetry[symmetry.getID()]);
+}
+
+std::string HexTicTacToeEnv::getSymmetryString(utils::Symmetry symmetry) const
+{
+    assert(symmetry.getID() >= 0 && symmetry.getID() < getNumSymmetries());
+    return kHexTicTacToeSymmetryStrings[symmetry.getID()];
+}
+
+std::vector<float> HexTicTacToeEnv::getFeaturesBySymmetry(utils::Symmetry symmetry /*= utils::Symmetry()*/) const
+{
+    std::vector<float> features;
+    const utils::Symmetry inverse_symmetry = getInverseSymmetry(symmetry);
+    const bool one_move_left = (actions_.size() % 2 == 1);
+    for (int channel = 0; channel < getNumInputChannels(); ++channel) {
+        for (int pos = 0; pos < getPolicySize(); ++pos) {
+            const int symmetry_pos = getSymmetryPosition(pos, inverse_symmetry);
+            if (channel == 0) {
+                features.push_back(board_[symmetry_pos] == turn_ ? 1.0f : 0.0f);
+            } else if (channel == 1) {
+                features.push_back(board_[symmetry_pos] == getNextPlayer(turn_, kHexTicTacToeNumPlayer) ? 1.0f : 0.0f);
+            } else if (channel == 2) {
+                features.push_back(turn_ == Player::kPlayer1 ? 1.0f : 0.0f);
+            } else if (channel == 3) {
+                features.push_back(turn_ == Player::kPlayer2 ? 1.0f : 0.0f);
+            } else {
+                features.push_back(one_move_left ? 1.0f : 0.0f);
+            }
+        }
+    }
+    return features;
+}
+
+std::vector<float> HexTicTacToeEnv::getActionFeaturesBySymmetry(const HexTicTacToeAction& action, utils::Symmetry symmetry /* = utils::Symmetry() */) const
+{
+    std::vector<float> action_features(getPolicySize(), 0.0f);
+    action_features[getSymmetryAction(action.getActionID(), symmetry)] = 1.0f;
+    return action_features;
+}
+
+int HexTicTacToeEnv::getSymmetryPosition(int position, utils::Symmetry symmetry) const
+{
+    assert(position >= 0 && position < getPolicySize());
+    return coordToActionID(transformHexCoord(actionIDToCoord(position), symmetry.getID(), getBoardSize()));
+}
+
+int HexTicTacToeEnv::getSymmetryAction(int action_id, utils::Symmetry symmetry) const
+{
+    return getSymmetryPosition(action_id, symmetry);
+}
+
 std::vector<float> HexTicTacToeEnv::getActionFeatures(const HexTicTacToeAction& action, utils::Rotation rotation /* = utils::Rotation::kRotationNone */) const
 {
     std::vector<float> action_features(getPolicySize(), 0.0f);
@@ -174,6 +317,15 @@ std::vector<float> HexTicTacToeEnvLoader::getActionFeatures(const int pos, utils
     const HexTicTacToeAction& action = action_pairs_[pos].first;
     std::vector<float> action_features(getPolicySize(), 0.0f);
     int action_id = ((pos < static_cast<int>(action_pairs_.size())) ? getRotateAction(action.getActionID(), rotation) : utils::Random::randInt() % action_features.size());
+    action_features[action_id] = 1.0f;
+    return action_features;
+}
+
+std::vector<float> HexTicTacToeEnvLoader::getActionFeaturesBySymmetry(const int pos, utils::Symmetry symmetry /* = utils::Symmetry() */) const
+{
+    const HexTicTacToeAction& action = action_pairs_[pos].first;
+    std::vector<float> action_features(getPolicySize(), 0.0f);
+    const int action_id = ((pos < static_cast<int>(action_pairs_.size())) ? getSymmetryAction(action.getActionID(), symmetry) : utils::Random::randInt() % action_features.size());
     action_features[action_id] = 1.0f;
     return action_features;
 }

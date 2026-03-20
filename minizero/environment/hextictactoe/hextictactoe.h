@@ -44,6 +44,15 @@ public:
     float getReward() const override { return 0.0f; }
     float getEvalScore(bool is_resign = false) const override;
     std::vector<float> getFeatures(utils::Rotation rotation = utils::Rotation::kRotationNone) const override;
+    int getNumSymmetries() const override;
+    utils::Symmetry getIdentitySymmetry() const override;
+    utils::Symmetry getSymmetry(int symmetry_id) const override;
+    utils::Symmetry getInverseSymmetry(utils::Symmetry symmetry) const override;
+    std::string getSymmetryString(utils::Symmetry symmetry) const override;
+    std::vector<float> getFeaturesBySymmetry(utils::Symmetry symmetry = utils::Symmetry()) const override;
+    std::vector<float> getActionFeaturesBySymmetry(const HexTicTacToeAction& action, utils::Symmetry symmetry = utils::Symmetry()) const override;
+    int getSymmetryPosition(int position, utils::Symmetry symmetry) const override;
+    int getSymmetryAction(int action_id, utils::Symmetry symmetry) const override;
     std::vector<float> getActionFeatures(const HexTicTacToeAction& action, utils::Rotation rotation = utils::Rotation::kRotationNone) const override;
     inline int getNumInputChannels() const override { return 5; }
     inline int getPolicySize() const override { return getBoardSize() * getBoardSize(); }
@@ -70,6 +79,7 @@ private:
 class HexTicTacToeEnvLoader : public BaseBoardEnvLoader<HexTicTacToeAction, HexTicTacToeEnv> {
 public:
     std::vector<float> getActionFeatures(const int pos, utils::Rotation rotation = utils::Rotation::kRotationNone) const override;
+    std::vector<float> getActionFeaturesBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const override;
     inline std::vector<float> getValue(const int pos) const { return {getReturn()}; }
     inline std::string name() const override { return kHexTicTacToeName + "_" + std::to_string(getBoardSize()); }
     inline int getPolicySize() const override { return getBoardSize() * getBoardSize(); }

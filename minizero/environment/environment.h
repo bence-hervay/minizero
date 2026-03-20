@@ -182,7 +182,7 @@ inline void setUpEnv()
     config::nn_num_hidden_channels = 128;
     config::nn_num_value_hidden_channels = 128;
     config::zero_num_games_per_iteration = 2000;
-    config::actor_use_random_symmetry_features = false;
+    config::actor_use_random_symmetry_features = true;
 #elif PUZZLE2048
     config::env_board_size = 4;
     config::learner_n_step_return = 10;

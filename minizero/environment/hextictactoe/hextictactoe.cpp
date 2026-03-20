@@ -85,10 +85,9 @@ HexTicTacToeCoord transformHexCoord(const HexTicTacToeCoord& coord, int symmetry
 void HexTicTacToeEnv::reset()
 {
     winner_ = Player::kPlayerNone;
-    turn_ = Player::kPlayer2;
+    turn_ = Player::kPlayer1;
     actions_.clear();
     board_.assign(getPolicySize(), Player::kPlayerNone);
-    board_[getCenterPosition()] = Player::kPlayer1;
 }
 
 bool HexTicTacToeEnv::act(const HexTicTacToeAction& action)
@@ -149,10 +148,10 @@ std::vector<float> HexTicTacToeEnv::getFeatures(utils::Rotation rotation /*= uti
         0~1. own/opponent position
         2. Player 1 turn
         3. Player 2 turn
-        4. one move left in the current two-step turn
+        4. one move left in the current turn
     */
     std::vector<float> features;
-    const bool one_move_left = (actions_.size() % 2 == 1);
+    const bool one_move_left = canMoveAgain(actions_.size());
     for (int channel = 0; channel < getNumInputChannels(); ++channel) {
         for (int pos = 0; pos < getPolicySize(); ++pos) {
             int rotation_pos = getRotatePosition(pos, utils::reversed_rotation[static_cast<int>(rotation)]);
@@ -204,7 +203,7 @@ std::vector<float> HexTicTacToeEnv::getFeaturesBySymmetry(utils::Symmetry symmet
 {
     std::vector<float> features;
     const utils::Symmetry inverse_symmetry = getInverseSymmetry(symmetry);
-    const bool one_move_left = (actions_.size() % 2 == 1);
+    const bool one_move_left = canMoveAgain(actions_.size());
     for (int channel = 0; channel < getNumInputChannels(); ++channel) {
         for (int pos = 0; pos < getPolicySize(); ++pos) {
             const int symmetry_pos = getSymmetryPosition(pos, inverse_symmetry);

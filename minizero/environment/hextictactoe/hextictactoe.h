@@ -11,6 +11,11 @@ const std::string kHexTicTacToeName = "hextictactoe";
 const int kHexTicTacToeNumPlayer = 2;
 const int kHexTicTacToeNumWinConnectStone = 6;
 
+inline bool canMoveAgain(size_t move_id)
+{
+    return move_id > 0 && move_id % 2 == 0;
+}
+
 struct HexTicTacToeCoord {
     int x;
     int y;
@@ -28,7 +33,7 @@ public:
         : BaseBoardAction<kHexTicTacToeNumPlayer>(action_string_args, board_size) {}
 
     inline Player nextPlayer() const override { throw std::runtime_error{"MuZero does not support this game"}; }
-    inline Player nextPlayer(int move_id) const { return (move_id % 2 == 1 ? getPlayer() : BaseBoardAction::nextPlayer()); }
+    inline Player nextPlayer(int move_id) const { return (canMoveAgain(move_id) ? getPlayer() : BaseBoardAction::nextPlayer()); }
 };
 
 class HexTicTacToeEnv : public BaseBoardEnv<HexTicTacToeAction> {
@@ -68,7 +73,6 @@ private:
     inline HexTicTacToeCoord actionIDToCoord(int action_id) const { return {action_id % getBoardSize(), action_id / getBoardSize()}; }
     inline int coordToActionID(const HexTicTacToeCoord& coord) const { return wrapCoordinate(coord.y) * getBoardSize() + wrapCoordinate(coord.x); }
     inline int wrapCoordinate(int value) const { return (value % getBoardSize() + getBoardSize()) % getBoardSize(); }
-    inline int getCenterPosition() const { return (getBoardSize() / 2) * getBoardSize() + getBoardSize() / 2; }
     Player getPlayerAtCoord(const HexTicTacToeCoord& coord) const;
     std::string getCoordinateString() const;
 

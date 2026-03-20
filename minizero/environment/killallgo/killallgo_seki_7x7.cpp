@@ -760,10 +760,8 @@ bool SekiSearch::checkSSK(const KillAllGoEnv& env, const GoBlock* block, const G
             int pos = search_bitboard._Find_first();
             search_bitboard.reset(pos);
             KillAllGoAction action(pos, turn);
-            GoHashKey hashkey_after_play;
-            if (env.getGrid(action.getActionID()).getPlayer() == Player::kPlayerNone && !env.isPassAction(action) && !isSuicidalMove(env, action)) {
-                hashkey_after_play = getHashKeyAfterPlay(env, action);
-            }
+            if (env.getGrid(action.getActionID()).getPlayer() != Player::kPlayerNone || env.isPassAction(action) || isSuicidalMove(env, action)) { continue; }
+            const GoHashKey hashkey_after_play = getHashKeyAfterPlay(env, action);
             if (env.getHashTable().count(hashkey_after_play) && turn == attacker) {
                 has_ssk = true;
                 break;
@@ -823,10 +821,8 @@ std::pair<bool, std::vector<killallgo::GHIPattern>> SekiSearch::findLoopPatterns
             int pos = search_bitboard._Find_first();
             search_bitboard.reset(pos);
             KillAllGoAction action(pos, turn);
-            GoHashKey hashkey_after_play;
-            if (env.getGrid(action.getActionID()).getPlayer() == Player::kPlayerNone && !env.isPassAction(action) && !isSuicidalMove(env, action)) {
-                hashkey_after_play = getHashKeyAfterPlay(env, action);
-            }
+            if (env.getGrid(action.getActionID()).getPlayer() != Player::kPlayerNone || env.isPassAction(action) || isSuicidalMove(env, action)) { continue; }
+            const GoHashKey hashkey_after_play = getHashKeyAfterPlay(env, action);
 
             if (env.getHashTable().count(hashkey_after_play) && attacker == Player::kPlayer1 && turn == Player::kPlayer1) { // only check white win situation
                 has_ssk = true;

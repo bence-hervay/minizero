@@ -27,6 +27,7 @@ usage() {
         echo "  -p,        --port                 Assign the port used by the zero-server"
         echo "  -b,        --batch_size           Assign the batch size for self-play workers (default 64)"
         echo "  -c,        --cpu_thread_per_gpu   Assign the number of CPUs for each GPU for self-play workers (default 4)"
+        echo "  -w,        --sp_workers_per_gpu   Assign the number of self-play workers to launch per GPU (default 1)"
         echo "             --sp_progress          Show the self-play progress (default hidden)"
         echo "             --sp_conf_str          Set additional settings for self-play workers"
         echo "             --sp_gpu               Assign available GPUs for self-play workers, e.g. 0123"
@@ -194,6 +195,7 @@ while [[ $1 ]]; do
     -ns|--name_suffix)  name_suffix=$2; shift; ;;
     -b|--batch_size)    batch_size=$2; shift; ;;
     -c|--cpu_thread_per_gpu|--num_threads)  num_threads=$2; shift; ;;
+    -w|--sp_workers_per_gpu)  sp_workers_per_gpu=$2; shift; ;;
     --color)            color=$2; shift; ;;
     --sp_progress)      [[ $2 =~ true|false ]] && { sp_progress=$2; shift; } || { sp_progress=true; } ;;
     --sp_conf_str)      sp_conf_str=$2; shift; ;;
@@ -455,15 +457,19 @@ if [[ $mode == train ]]; then # ================================ TRAIN =========
 
     # launch zero sp workers (one per available GPU)
     SP_CUDA_VISIBLE_DEVICES=${SP_CUDA_VISIBLE_DEVICES:-$CUDA_VISIBLE_DEVICES}
+    sp_workers_per_gpu=${sp_workers_per_gpu:-1}
     for GPU in ${SP_CUDA_VISIBLE_DEVICES//,/ }; do
-        {
-            [[ $sp_progress == true ]] && sp_program_quiet=false || sp_program_quiet=true
-            [[ $sp_conf_str != *program_quiet* ]] && sp_conf_str+=${sp_conf_str:+:}program_quiet=$sp_program_quiet
-            $launch scripts/zero-worker.sh $game $(hostname) $zero_server_port sp -b ${batch_size:-64} -c ${num_threads:-4} -g $GPU ${sp_conf_str:+-conf_str "$sp_conf_str"}
-        } 2>&1 | tee >(watchdog "^Failed to|Segmentation fault|Killed|Aborted|^[A-Za-z.]+Error") | colorize OUT_TRAIN_SP &
-        PID[$!]=sp$GPU
-        unset sp_progress # only show the progress of the first sp
-        sleep 1
+        for (( worker_id=1; worker_id<=sp_workers_per_gpu; ++worker_id )); do
+            {
+                [[ $sp_progress == true ]] && sp_program_quiet=false || sp_program_quiet=true
+                local_sp_conf_str=$sp_conf_str
+                [[ $local_sp_conf_str != *program_quiet* ]] && local_sp_conf_str+=${local_sp_conf_str:+:}program_quiet=$sp_program_quiet
+                $launch scripts/zero-worker.sh $game $(hostname) $zero_server_port sp -b ${batch_size:-64} -c ${num_threads:-4} -g $GPU ${local_sp_conf_str:+-conf_str "$local_sp_conf_str"}
+            } 2>&1 | tee >(watchdog "^Failed to|Segmentation fault|Killed|Aborted|^[A-Za-z.]+Error") | colorize OUT_TRAIN_SP &
+            PID[$!]=sp${GPU}_$worker_id
+            unset sp_progress # only show the progress of the first sp
+            sleep 1
+        done
     done
 
     # launch zero op worker

@@ -1,0 +1,1 @@
+tools/quick-run.sh train hextictactoe runs/hextictactoe_fast.cfg 1000   -n runs/hextictactoe_fast   -b 128   -c 16   --sp_progress

@@ -1,0 +1,10 @@
+
+
+tools/quick-run.sh train hextictactoe az 1000 \
+  -gen runs/hextictactoe_sym.cfg
+
+tools/quick-run.sh train hextictactoe runs/hextictactoe_sym.cfg 1000 \
+  -n runs/hextictactoe_sym \
+  -b 64 \
+  -c 16 \
+  --sp_progress

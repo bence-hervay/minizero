@@ -1,0 +1,13 @@
+mkdir -p runs
+
+tools/quick-run.sh train hextictactoe az 1000 \
+  -gen runs/hextictactoe_deeper.cfg
+
+tools/quick-run.sh train hextictactoe runs/hextictactoe_deeper.cfg 1000 \
+  -n runs/hextictactoe_deeper \
+  -b 1024 \
+  -c 16 \
+  --sp_progress
+
+
+tools/quick-run.sh train hextictactoe runs/hextictactoe_deeper.cfg 1000   -n runs/hextictactoe_deeper   -b 128   -c 30   --sp_progress

@@ -1,0 +1,10 @@
+tools/quick-run.sh train hextictactoe az 1000 \
+  -gen runs/hextictactoe_sym.cfg
+
+tools/quick-run.sh train hextictactoe runs/hextictactoe_sym.cfg 1000 \
+  -n runs/hextictactoe_sym \
+  -w 4 \
+  -b 48 \
+  -c 4 \
+  -conf_str learner_batch_size=4096 \
+  --sp_progress

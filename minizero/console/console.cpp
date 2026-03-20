@@ -179,10 +179,15 @@ void Console::cmdPV(const std::vector<std::string>& args)
 
     float value;
     std::vector<float> policy;
-    utils::Rotation rotation = config::actor_use_random_rotation_features ? static_cast<utils::Rotation>(utils::Random::randInt() % static_cast<int>(utils::Rotation::kRotateSize)) : utils::Rotation::kRotationNone;
-    calculatePolicyValue(policy, value, rotation);
-
     const Environment& env_transition = actor_->getEnvironment();
+    utils::Symmetry symmetry = env_transition.getIdentitySymmetry();
+    if (config::actor_use_random_symmetry_features) {
+        const int num_symmetries = env_transition.getNumSymmetries();
+        assert(num_symmetries > 0);
+        symmetry = env_transition.getSymmetry(utils::Random::randInt() % num_symmetries);
+    }
+    calculatePolicyValue(policy, value, symmetry);
+
     std::vector<std::pair<std::string, float>> sorted_policy;
     for (size_t action_id = 0; action_id < policy.size(); ++action_id) {
         Action action(action_id, env_transition.getTurn());
@@ -192,7 +197,7 @@ void Console::cmdPV(const std::vector<std::string>& args)
 
     std::ostringstream oss;
     std::sort(sorted_policy.begin(), sorted_policy.end(), [](const std::pair<std::string, float>& a, const std::pair<std::string, float>& b) { return (a.second > b.second); });
-    oss << "[rotation] " << utils::getRotationString(rotation) << std::endl;
+    oss << "[symmetry] " << env_transition.getSymmetryString(symmetry) << std::endl;
     oss << "[policy] ";
     for (size_t i = 0; i < sorted_policy.size(); i++) { oss << sorted_policy[i].first << ": " << std::fixed << std::setprecision(3) << sorted_policy[i].second << " "; }
     oss << std::endl;
@@ -221,13 +226,18 @@ void Console::cmdPVString(const std::vector<std::string>& args)
 
     float value;
     std::vector<float> policy;
-    utils::Rotation rotation = config::actor_use_random_rotation_features ? static_cast<utils::Rotation>(utils::Random::randInt() % static_cast<int>(utils::Rotation::kRotateSize)) : utils::Rotation::kRotationNone;
-    calculatePolicyValue(policy, value, rotation);
+    const Environment& env_transition = actor_->getEnvironment();
+    utils::Symmetry symmetry = env_transition.getIdentitySymmetry();
+    if (config::actor_use_random_symmetry_features) {
+        const int num_symmetries = env_transition.getNumSymmetries();
+        assert(num_symmetries > 0);
+        symmetry = env_transition.getSymmetry(utils::Random::randInt() % num_symmetries);
+    }
+    calculatePolicyValue(policy, value, symmetry);
 
     std::ostringstream oss;
     oss << std::endl;
     oss << "[value] " << value << std::endl;
-    const Environment& env_transition = actor_->getEnvironment();
     for (size_t action_id = 0; action_id < policy.size(); ++action_id) {
         Action action(action_id, env_transition.getTurn());
         if (!env_transition.isLegalAction(action)) { continue; }
@@ -265,18 +275,19 @@ void Console::cmdGetConfigString(const std::vector<std::string>& args)
     reply(ConsoleResponse::kSuccess, oss.str());
 }
 
-void Console::calculatePolicyValue(std::vector<float>& policy, float& value, utils::Rotation rotation /* = utils::Rotation::kRotationNone */)
+void Console::calculatePolicyValue(std::vector<float>& policy, float& value, utils::Symmetry symmetry /* = utils::Symmetry() */)
 {
     if (network_->getNetworkTypeName() == "alphazero") {
         std::shared_ptr<network::AlphaZeroNetwork> alphazero_network = std::static_pointer_cast<network::AlphaZeroNetwork>(network_);
-        int index = alphazero_network->pushBack(actor_->getEnvironment().getFeatures(rotation));
+        const Environment& env = actor_->getEnvironment();
+        int index = alphazero_network->pushBack(env.getFeaturesBySymmetry(symmetry));
         std::shared_ptr<NetworkOutput> network_output = alphazero_network->forward()[index];
         std::shared_ptr<minizero::network::AlphaZeroNetworkOutput> zero_output = std::static_pointer_cast<minizero::network::AlphaZeroNetworkOutput>(network_output);
         value = zero_output->value_;
         policy.clear();
         for (size_t action_id = 0; action_id < zero_output->policy_.size(); ++action_id) {
-            int rotated_id = actor_->getEnvironment().getRotateAction(action_id, rotation);
-            policy.push_back(zero_output->policy_[rotated_id]);
+            int symmetry_action_id = env.getSymmetryAction(action_id, symmetry);
+            policy.push_back(zero_output->policy_[symmetry_action_id]);
         }
     } else if (network_->getNetworkTypeName() == "muzero" || network_->getNetworkTypeName() == "muzero_atari") {
         std::shared_ptr<network::MuZeroNetwork> muzero_network = std::static_pointer_cast<network::MuZeroNetwork>(network_);

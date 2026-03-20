@@ -2,7 +2,7 @@
 #include "configuration.h"
 #include "environment.h"
 #include "random.h"
-#include "rotation.h"
+#include "symmetry.h"
 #include <algorithm>
 #include <fstream>
 #include <utility>
@@ -139,10 +139,12 @@ void DataLoaderThread::setAlphaZeroTrainingData(int batch_index)
 
     // AlphaZero training data
     const EnvironmentLoader& env_loader = getSharedData()->replay_buffer_.env_loaders_[env_id];
-    Rotation rotation = static_cast<Rotation>(Random::randInt() % static_cast<int>(Rotation::kRotateSize));
+    Symmetry symmetry = env_loader.getIdentitySymmetry();
+    const int num_symmetries = env_loader.getNumSymmetries();
+    if (num_symmetries > 0) { symmetry = env_loader.getSymmetry(Random::randInt() % num_symmetries); }
     float loss_scale = getSharedData()->replay_buffer_.getLossScale(p);
-    std::vector<float> features = env_loader.getFeatures(pos, rotation);
-    std::vector<float> policy = env_loader.getPolicy(pos, rotation);
+    std::vector<float> features = env_loader.getFeaturesBySymmetry(pos, symmetry);
+    std::vector<float> policy = env_loader.getPolicyBySymmetry(pos, symmetry);
     std::vector<float> value = env_loader.getValue(pos);
 
     // write data to data_ptr
@@ -162,19 +164,21 @@ void DataLoaderThread::setMuZeroTrainingData(int batch_index)
 
     // MuZero training data
     const EnvironmentLoader& env_loader = getSharedData()->replay_buffer_.env_loaders_[env_id];
-    Rotation rotation = static_cast<Rotation>(Random::randInt() % static_cast<int>(Rotation::kRotateSize));
+    Symmetry symmetry = env_loader.getIdentitySymmetry();
+    const int num_symmetries = env_loader.getNumSymmetries();
+    if (num_symmetries > 0) { symmetry = env_loader.getSymmetry(Random::randInt() % num_symmetries); }
     float loss_scale = getSharedData()->replay_buffer_.getLossScale(p);
-    std::vector<float> features = env_loader.getFeatures(pos, rotation);
+    std::vector<float> features = env_loader.getFeaturesBySymmetry(pos, symmetry);
     std::vector<float> action_features, policy, value, reward, tmp;
     for (int step = 0; step <= config::learner_muzero_unrolling_step; ++step) {
         // action features
         if (step < config::learner_muzero_unrolling_step) {
-            tmp = env_loader.getActionFeatures(pos + step, rotation);
+            tmp = env_loader.getActionFeaturesBySymmetry(pos + step, symmetry);
             action_features.insert(action_features.end(), tmp.begin(), tmp.end());
         }
 
         // policy
-        tmp = env_loader.getPolicy(pos + step, rotation);
+        tmp = env_loader.getPolicyBySymmetry(pos + step, symmetry);
         policy.insert(policy.end(), tmp.begin(), tmp.end());
 
         // value

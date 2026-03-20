@@ -21,7 +21,7 @@ bool actor_select_action_by_count = false;
 bool actor_select_action_by_softmax_count = true;
 float actor_select_action_softmax_temperature = 1.0f;
 bool actor_select_action_softmax_temperature_decay = false;
-bool actor_use_random_rotation_features = true;
+bool actor_use_random_symmetry_features = true;
 bool actor_use_dirichlet_noise = true;
 float actor_dirichlet_noise_alpha = 0.03f;
 float actor_dirichlet_noise_epsilon = 0.25f;
@@ -106,7 +106,7 @@ void setConfiguration(ConfigureLoader& cl)
     cl.addParameter("actor_select_action_by_softmax_count", actor_select_action_by_softmax_count, "true for selecting the action by the propotion of MCTS count; should not be true together with actor_select_action_by_count", "Actor");
     cl.addParameter("actor_select_action_softmax_temperature", actor_select_action_softmax_temperature, "the softmax temperature when using actor_select_action_by_softmax_count", "Actor");
     cl.addParameter("actor_select_action_softmax_temperature_decay", actor_select_action_softmax_temperature_decay, "true for decaying the temperature based on training iteration; set 1, 0.5, and 0.25 for 0%-50%, 50%-75%, and 75%-100% of total iterations, respectively", "Actor"); // ref: MZ
-    cl.addParameter("actor_use_random_rotation_features", actor_use_random_rotation_features, "true for randomly rotating input features; only supports in alphazero", "Actor");
+    cl.addParameter("actor_use_random_symmetry_features", actor_use_random_symmetry_features, "true for randomly applying a board symmetry to input features and policy targets; only supports in alphazero", "Actor");
     cl.addParameter("actor_use_dirichlet_noise", actor_use_dirichlet_noise, "true for adding dirchlet noise to the policy", "Actor");                                          // ref: AZ, Sec. Methods
     cl.addParameter("actor_dirichlet_noise_alpha", actor_dirichlet_noise_alpha, "hyperparameter for dirchlet noise, usually (1 / sqrt(number of actions))", "Actor");          // ref: AZ, Sec. Methods
     cl.addParameter("actor_dirichlet_noise_epsilon", actor_dirichlet_noise_epsilon, "hyperparameter for dirchlet noise", "Actor");                                             // ref: AZ, Sec. Methods

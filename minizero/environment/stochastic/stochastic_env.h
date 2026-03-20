@@ -30,6 +30,8 @@ public:
     virtual int getNumChanceEventFeatureChannels() const = 0;
     virtual std::vector<float> getChanceEventFeatures(const Action& event, utils::Rotation rotation = utils::Rotation::kRotationNone) const = 0;
     virtual int getRotateChanceEvent(int event_id, utils::Rotation rotation) const = 0;
+    virtual std::vector<float> getChanceEventFeaturesBySymmetry(const Action& event, utils::Symmetry symmetry = utils::Symmetry()) const { return getChanceEventFeatures(event, utils::symmetryToRotation(symmetry)); }
+    virtual int getSymmetryChanceEvent(int event_id, utils::Symmetry symmetry) const { return getRotateChanceEvent(event_id, utils::symmetryToRotation(symmetry)); }
 
     inline int getSeed() const { return seed_; }
     inline const std::vector<Action>& getChanceEventHistory() const { return events_; }
@@ -64,6 +66,16 @@ public:
         return env.getFeatures(rotation);
     }
 
+    std::vector<float> getFeaturesBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const override
+    {
+        // a slow but naive method which simply replays the game again to get features
+        Env env;
+        env.reset(getSeed());
+        const auto& action_pairs_ = BaseEnvLoader<Action, Env>::action_pairs_;
+        for (int i = 0; i < std::min(pos, static_cast<int>(action_pairs_.size())); ++i) { env.act(action_pairs_[i].first); }
+        return env.getFeaturesBySymmetry(symmetry);
+    }
+
     virtual std::vector<float> getAfterstateFeatures(const int pos, utils::Rotation rotation) const
     {
         // a slow but naive method which simply replays the game again to get features
@@ -75,11 +87,25 @@ public:
         return env.getFeatures(rotation);
     }
 
+    virtual std::vector<float> getAfterstateFeaturesBySymmetry(const int pos, utils::Symmetry symmetry) const
+    {
+        // a slow but naive method which simply replays the game again to get features
+        Env env;
+        env.reset(getSeed());
+        const auto& action_pairs_ = BaseEnvLoader<Action, Env>::action_pairs_;
+        for (int i = 0; i < std::min(pos, static_cast<int>(action_pairs_.size())); ++i) { env.act(action_pairs_[i].first); }
+        if (!env.isTerminal() && pos < static_cast<int>(action_pairs_.size())) { env.act(action_pairs_[pos].first, false); }
+        return env.getFeaturesBySymmetry(symmetry);
+    }
+
     virtual std::vector<float> getChance(const int pos, utils::Rotation rotation = utils::Rotation::kRotationNone) const = 0;
     virtual std::vector<float> getChanceEventFeatures(const int pos, utils::Rotation rotation = utils::Rotation::kRotationNone) const = 0;
+    virtual std::vector<float> getChanceBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const { return getChance(pos, utils::symmetryToRotation(symmetry)); }
+    virtual std::vector<float> getChanceEventFeaturesBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const { return getChanceEventFeatures(pos, utils::symmetryToRotation(symmetry)); }
     virtual std::vector<float> getAfterstateValue(const int pos) const = 0;
     virtual int getChanceEventSize() const = 0;
     virtual int getRotateChanceEvent(int event_id, utils::Rotation rotation) const = 0;
+    virtual int getSymmetryChanceEvent(int event_id, utils::Symmetry symmetry) const { return getRotateChanceEvent(event_id, utils::symmetryToRotation(symmetry)); }
 };
 
 } // namespace minizero::env

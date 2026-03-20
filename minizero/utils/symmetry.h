@@ -2,9 +2,24 @@
 
 #include <cassert>
 #include <string>
-#include <vector>
 
 namespace minizero::utils {
+
+// A generic symmetry handle. The meaning of the id is environment-specific.
+class Symmetry {
+public:
+    constexpr explicit Symmetry(int id = 0)
+        : id_(id)
+    {
+    }
+
+    constexpr int getID() const { return id_; }
+    constexpr bool operator==(const Symmetry& rhs) const { return id_ == rhs.id_; }
+    constexpr bool operator!=(const Symmetry& rhs) const { return !(*this == rhs); }
+
+private:
+    int id_;
+};
 
 enum class Rotation {
     kRotationNone,
@@ -18,7 +33,9 @@ enum class Rotation {
     kRotateSize
 };
 
-const Rotation reversed_rotation[static_cast<int>(Rotation::kRotateSize)] = {
+inline constexpr int kRotationSymmetryCount = static_cast<int>(Rotation::kRotateSize);
+
+inline constexpr Rotation reversed_rotation[kRotationSymmetryCount] = {
     Rotation::kRotationNone,
     Rotation::kRotation270,
     Rotation::kRotation180,
@@ -28,7 +45,7 @@ const Rotation reversed_rotation[static_cast<int>(Rotation::kRotateSize)] = {
     Rotation::kHorizontalRotation180,
     Rotation::kHorizontalRotation270};
 
-const std::string rotation_string[static_cast<int>(Rotation::kRotateSize)] = {
+inline const std::string rotation_string[kRotationSymmetryCount] = {
     "Rotation_None",
     "Rotation_90_Degree",
     "Rotation_180_Degree",
@@ -38,14 +55,35 @@ const std::string rotation_string[static_cast<int>(Rotation::kRotateSize)] = {
     "Horizontal_Rotation_180_Degree",
     "Horizontal_Rotation_270_Degree"};
 
-inline std::string getRotationString(Rotation rotate) { return rotation_string[static_cast<int>(rotate)]; }
+inline constexpr Symmetry rotationToSymmetry(Rotation rotation) { return Symmetry(static_cast<int>(rotation)); }
+
+inline Rotation symmetryToRotation(Symmetry symmetry)
+{
+    assert(symmetry.getID() >= 0 && symmetry.getID() < kRotationSymmetryCount);
+    return static_cast<Rotation>(symmetry.getID());
+}
+
+inline constexpr int getRotationSymmetryCount() { return kRotationSymmetryCount; }
+inline constexpr Symmetry getIdentitySymmetry() { return rotationToSymmetry(Rotation::kRotationNone); }
+inline std::string getRotationString(Rotation rotation) { return rotation_string[static_cast<int>(rotation)]; }
+inline std::string getRotationSymmetryString(Symmetry symmetry) { return getRotationString(symmetryToRotation(symmetry)); }
 
 inline Rotation getRotationFromString(const std::string rotation_str)
 {
-    for (int i = 0; i < static_cast<int>(Rotation::kRotateSize); ++i) {
+    for (int i = 0; i < kRotationSymmetryCount; ++i) {
         if (rotation_str == rotation_string[i]) { return static_cast<Rotation>(i); }
     }
     return Rotation::kRotateSize;
+}
+
+inline Symmetry getSymmetryFromRotationString(const std::string& rotation_str)
+{
+    return rotationToSymmetry(getRotationFromString(rotation_str));
+}
+
+inline Symmetry getReversedSymmetry(Symmetry symmetry)
+{
+    return rotationToSymmetry(reversed_rotation[static_cast<int>(symmetryToRotation(symmetry))]);
 }
 
 inline int getPositionByRotating(Rotation rotation, int original_pos, int board_size)
@@ -90,6 +128,11 @@ inline int getPositionByRotating(Rotation rotation, int original_pos, int board_
     int new_pos = (rotation_y + center) * board_size + (rotation_x + center);
     assert(new_pos >= 0 && new_pos < board_size * board_size);
     return new_pos;
+}
+
+inline int getPositionBySymmetry(Symmetry symmetry, int original_pos, int board_size)
+{
+    return getPositionByRotating(symmetryToRotation(symmetry), original_pos, board_size);
 }
 
 } // namespace minizero::utils

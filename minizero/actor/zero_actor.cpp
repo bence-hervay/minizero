@@ -53,8 +53,13 @@ void ZeroActor::beforeNNEvaluation()
     mcts_search_data_.node_path_ = selection();
     if (alphazero_network_) {
         Environment env_transition = getEnvironmentTransition(mcts_search_data_.node_path_);
-        feature_rotation_ = config::actor_use_random_rotation_features ? static_cast<utils::Rotation>(utils::Random::randInt() % static_cast<int>(utils::Rotation::kRotateSize)) : utils::Rotation::kRotationNone;
-        nn_evaluation_batch_id_ = alphazero_network_->pushBack(env_transition.getFeatures(feature_rotation_));
+        feature_symmetry_ = env_transition.getIdentitySymmetry();
+        if (config::actor_use_random_symmetry_features) {
+            const int num_symmetries = env_transition.getNumSymmetries();
+            assert(num_symmetries > 0);
+            feature_symmetry_ = env_transition.getSymmetry(utils::Random::randInt() % num_symmetries);
+        }
+        nn_evaluation_batch_id_ = alphazero_network_->pushBack(env_transition.getFeaturesBySymmetry(feature_symmetry_));
     } else if (muzero_network_) {
         if (getMCTS()->getNumSimulation() == 0) { // initial inference for root node
             nn_evaluation_batch_id_ = muzero_network_->pushBackInitialData(env_.getFeatures());
@@ -79,7 +84,7 @@ void ZeroActor::afterNNEvaluation(const std::shared_ptr<NetworkOutput>& network_
         Environment env_transition = getEnvironmentTransition(node_path);
         if (!env_transition.isTerminal()) {
             std::shared_ptr<AlphaZeroNetworkOutput> alphazero_output = std::static_pointer_cast<AlphaZeroNetworkOutput>(network_output);
-            getMCTS()->expand(leaf_node, calculateAlphaZeroActionPolicy(env_transition, alphazero_output, feature_rotation_));
+            getMCTS()->expand(leaf_node, calculateAlphaZeroActionPolicy(env_transition, alphazero_output, feature_symmetry_));
             getMCTS()->backup(node_path, alphazero_output->value_, env_transition.getReward());
         } else {
             getMCTS()->backup(node_path, env_transition.getEvalScore(), env_transition.getReward());
@@ -135,12 +140,12 @@ void ZeroActor::step()
                               (alphazero_network_ || num_simulation > 0) ? num_simulation_left : 1 /* initial inference for root node */);
     assert(batch_size > 0);
 
-    std::vector<std::tuple<int, utils::Rotation, decltype(mcts_search_data_.node_path_)>> batch_queries; // batch id, rotation, search path
+    std::vector<std::tuple<int, utils::Symmetry, decltype(mcts_search_data_.node_path_)>> batch_queries; // batch id, symmetry, search path
     for (int batch_id = 0; batch_id < batch_size; batch_id++) {
         beforeNNEvaluation();
         assert(nn_evaluation_batch_id_ == batch_id);
         if (mcts_search_data_.node_path_.back()->getVirtualLoss() == 0) {
-            batch_queries.emplace_back(nn_evaluation_batch_id_, feature_rotation_, mcts_search_data_.node_path_);
+            batch_queries.emplace_back(nn_evaluation_batch_id_, feature_symmetry_, mcts_search_data_.node_path_);
         }
         for (auto node : mcts_search_data_.node_path_) { node->addVirtualLoss(); }
     }
@@ -148,7 +153,7 @@ void ZeroActor::step()
                                              : (num_simulation == 0 ? muzero_network_->initialInference() : muzero_network_->recurrentInference());
     for (auto& query : batch_queries) {
         nn_evaluation_batch_id_ = std::get<0>(query);
-        feature_rotation_ = std::get<1>(query);
+        feature_symmetry_ = std::get<1>(query);
         mcts_search_data_.node_path_ = std::get<2>(query);
         afterNNEvaluation(network_output[nn_evaluation_batch_id_]);
         auto virtual_loss = mcts_search_data_.node_path_.back()->getVirtualLoss();
@@ -212,15 +217,15 @@ void ZeroActor::addNoiseToNodeChildren(MCTSNode* node)
     }
 }
 
-std::vector<MCTS::ActionCandidate> ZeroActor::calculateAlphaZeroActionPolicy(const Environment& env_transition, const std::shared_ptr<network::AlphaZeroNetworkOutput>& alphazero_output, const utils::Rotation& rotation)
+std::vector<MCTS::ActionCandidate> ZeroActor::calculateAlphaZeroActionPolicy(const Environment& env_transition, const std::shared_ptr<network::AlphaZeroNetworkOutput>& alphazero_output, const utils::Symmetry& symmetry)
 {
     assert(alphazero_network_);
     std::vector<MCTS::ActionCandidate> action_candidates;
     for (size_t action_id = 0; action_id < alphazero_output->policy_.size(); ++action_id) {
         Action action(action_id, env_transition.getTurn());
         if (!env_transition.isLegalAction(action)) { continue; }
-        int rotated_id = env_transition.getRotateAction(action_id, rotation);
-        action_candidates.push_back(MCTS::ActionCandidate(action, alphazero_output->policy_[rotated_id], alphazero_output->policy_logits_[rotated_id]));
+        int symmetry_action_id = env_transition.getSymmetryAction(action_id, symmetry);
+        action_candidates.push_back(MCTS::ActionCandidate(action, alphazero_output->policy_[symmetry_action_id], alphazero_output->policy_logits_[symmetry_action_id]));
     }
     sort(action_candidates.begin(), action_candidates.end(), [](const MCTS::ActionCandidate& lhs, const MCTS::ActionCandidate& rhs) {
         return lhs.policy_ > rhs.policy_;

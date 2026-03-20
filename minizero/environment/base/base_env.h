@@ -1,7 +1,7 @@
 #pragma once
 
 #include "configuration.h"
-#include "rotation.h"
+#include "symmetry.h"
 #include "sgf_loader.h"
 #include "utils.h"
 #include "vector_map.h"
@@ -96,6 +96,19 @@ public:
     virtual int getDiscreteValueSize() const = 0;
     virtual int getRotatePosition(int position, utils::Rotation rotation) const = 0;
     virtual int getRotateAction(int action_id, utils::Rotation rotation) const = 0;
+    virtual int getNumSymmetries() const { return utils::getRotationSymmetryCount(); }
+    virtual utils::Symmetry getIdentitySymmetry() const { return utils::getIdentitySymmetry(); }
+    virtual utils::Symmetry getSymmetry(int symmetry_id) const
+    {
+        assert(symmetry_id >= 0 && symmetry_id < getNumSymmetries());
+        return utils::Symmetry(symmetry_id);
+    }
+    virtual utils::Symmetry getInverseSymmetry(utils::Symmetry symmetry) const { return utils::getReversedSymmetry(symmetry); }
+    virtual std::string getSymmetryString(utils::Symmetry symmetry) const { return utils::getRotationSymmetryString(symmetry); }
+    virtual std::vector<float> getFeaturesBySymmetry(utils::Symmetry symmetry = utils::Symmetry()) const { return getFeatures(utils::symmetryToRotation(symmetry)); }
+    virtual std::vector<float> getActionFeaturesBySymmetry(const Action& action, utils::Symmetry symmetry = utils::Symmetry()) const { return getActionFeatures(action, utils::symmetryToRotation(symmetry)); }
+    virtual int getSymmetryPosition(int position, utils::Symmetry symmetry) const { return getRotatePosition(position, utils::symmetryToRotation(symmetry)); }
+    virtual int getSymmetryAction(int action_id, utils::Symmetry symmetry) const { return getRotateAction(action_id, utils::symmetryToRotation(symmetry)); }
     virtual std::string toString() const = 0;
     virtual std::string name() const = 0;
     virtual int getNumPlayer() const = 0;
@@ -238,6 +251,14 @@ public:
         return env.getFeatures(rotation);
     }
 
+    virtual std::vector<float> getFeaturesBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const
+    {
+        // a slow but naive method which simply replays the game again to get features
+        Env env;
+        for (int i = 0; i < std::min(pos, static_cast<int>(action_pairs_.size())); ++i) { env.act(action_pairs_[i].first); }
+        return env.getFeaturesBySymmetry(symmetry);
+    }
+
     virtual std::vector<float> getPolicy(const int pos, utils::Rotation rotation = utils::Rotation::kRotationNone) const
     {
         std::vector<float> policy(getPolicySize(), 0.0f);
@@ -251,6 +272,32 @@ public:
                 std::istringstream iss(policy_distribution);
                 while (std::getline(iss, tmp, ',')) {
                     int position = getRotateAction(std::stoi(tmp.substr(0, tmp.find(":"))), rotation);
+                    float count = std::stof(tmp.substr(tmp.find(":") + 1));
+                    policy[position] = count;
+                    total += count;
+                }
+                for (auto& p : policy) { p /= total; }
+            }
+        } else { // absorbing states
+            std::fill(policy.begin(), policy.end(), 1.0f / getPolicySize());
+        }
+        return policy;
+    }
+
+    virtual std::vector<float> getPolicyBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const
+    {
+        std::vector<float> policy(getPolicySize(), 0.0f);
+        Env env;
+        if (pos < static_cast<int>(action_pairs_.size())) {
+            const std::string policy_distribution = action_pairs_[pos].second["P"];
+            if (policy_distribution.empty()) {
+                policy[env.getSymmetryAction(action_pairs_[pos].first.getActionID(), symmetry)] = 1.0f;
+            } else {
+                std::string tmp;
+                float total = 0.0f;
+                std::istringstream iss(policy_distribution);
+                while (std::getline(iss, tmp, ',')) {
+                    int position = env.getSymmetryAction(std::stoi(tmp.substr(0, tmp.find(":"))), symmetry);
                     float count = std::stof(tmp.substr(tmp.find(":") + 1));
                     policy[position] = count;
                     total += count;
@@ -288,6 +335,14 @@ public:
     virtual int getPolicySize() const = 0;
     virtual int getRotatePosition(int position, utils::Rotation rotation) const = 0;
     virtual int getRotateAction(int action_id, utils::Rotation rotation) const = 0;
+    virtual int getNumSymmetries() const { return Env().getNumSymmetries(); }
+    virtual utils::Symmetry getIdentitySymmetry() const { return Env().getIdentitySymmetry(); }
+    virtual utils::Symmetry getSymmetry(int symmetry_id) const { return Env().getSymmetry(symmetry_id); }
+    virtual utils::Symmetry getInverseSymmetry(utils::Symmetry symmetry) const { return Env().getInverseSymmetry(symmetry); }
+    virtual std::string getSymmetryString(utils::Symmetry symmetry) const { return Env().getSymmetryString(symmetry); }
+    virtual std::vector<float> getActionFeaturesBySymmetry(const int pos, utils::Symmetry symmetry = utils::Symmetry()) const { return getActionFeatures(pos, utils::symmetryToRotation(symmetry)); }
+    virtual int getSymmetryPosition(int position, utils::Symmetry symmetry) const { return Env().getSymmetryPosition(position, symmetry); }
+    virtual int getSymmetryAction(int action_id, utils::Symmetry symmetry) const { return Env().getSymmetryAction(action_id, symmetry); }
     virtual inline std::string getTag(const std::string& key) const { return tags_.count(key) ? tags_.at(key) : ""; }
     virtual inline void addTag(const std::string& key, const std::string& value) { tags_[key] = value; }
 

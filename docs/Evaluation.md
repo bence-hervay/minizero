@@ -89,7 +89,7 @@ actor_use_gumbel_noise=false
 In addition, sometimes played games become too similar. 
 To prevent this, use random rotation (for AlphaZero only) or even add softmax/noise back.
 ```
-actor_use_random_rotation_features=true
+actor_use_random_symmetry_features=true
 actor_select_action_by_count=false
 actor_select_action_by_softmax_count=true
 ```
